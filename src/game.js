@@ -62,6 +62,7 @@ function createRoom(hostId, hostName) {
     previousAscendantId: null,
     previousHighPriestId: null,
     votes: {},
+    lastVotes: {},
     goodOmensEnacted: 0,
     badOmensEnacted: 0,
     drawPile: [],
@@ -168,6 +169,9 @@ function castVote(room, playerId, vote) {
   const faithCount = Object.values(room.votes).filter(v => v === "faith").length;
   const doubtCount = Object.values(room.votes).filter(v => v === "doubt").length;
   const passed = faithCount > doubtCount;
+
+  // Persist votes for post-election display before any branch clears them
+  room.lastVotes = { ...room.votes };
 
   if (passed) {
     // Check Prophet win condition (3+ bad omens, Prophet becomes High Priest)
@@ -410,8 +414,12 @@ function publicStateFor(room, playerId) {
     discardPileCount: room.discardPile.length,
     votesCast: Object.keys(room.votes).length,
     totalAlive: room.players.filter(p => p.isAlive).length,
-    // votes revealed after all cast
+    // votes revealed after all cast; hidden during active election to prevent bias
     votes: room.phase !== "election" ? room.votes : undefined,
+    // last election's votes persist for display until the next election resolves
+    lastVotes: room.phase !== "election" ? room.lastVotes : undefined,
+    // all roles revealed at game over
+    revealedRoles: room.phase === "game_over" ? room.roles : undefined,
   };
 }
 
