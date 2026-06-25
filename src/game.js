@@ -1,5 +1,11 @@
 // Ascendancy — game logic (Secret Hitler reskin)
 
+const BOT_NAMES = [
+  "Archivist Vex", "Sentinel Kor", "Watcher Daal", "Herald Sorn",
+  "Keeper Yl", "Seeker Ash", "Lector Onyr", "Augur Feth",
+  "Envoy Caul", "Cipher Ruen",
+];
+
 const ROLE_COUNTS = {
   5:  { wardens: 3, zealots: 1 },
   6:  { wardens: 4, zealots: 1 },
@@ -50,7 +56,7 @@ function createRoom(hostId, hostName) {
     code: generateCode(),
     phase: "lobby",
     host: hostId,
-    players: [{ id: hostId, name: hostName, isAlive: true, isAscendant: false, isHighPriest: false }],
+    players: [{ id: hostId, name: hostName, isAlive: true, isAscendant: false, isHighPriest: false, isBot: false }],
     ascendantIndex: 0,
     nominatedHighPriest: null,
     previousAscendantId: null,
@@ -69,6 +75,27 @@ function createRoom(hostId, hostName) {
     // private — roles assigned per player
     roles: {},
   };
+}
+
+function addBot(room) {
+  if (room.phase !== "lobby") return { error: "Game already started" };
+  if (room.players.length >= 10) return { error: "Room is full" };
+
+  const usedNames = new Set(room.players.map(p => p.name));
+  const name = BOT_NAMES.find(n => !usedNames.has(n));
+  if (!name) return { error: "No bot names available" };
+
+  const id = `bot_${Date.now()}_${Math.floor(Math.random() * 9999)}`;
+  room.players.push({ id, name, isAlive: true, isAscendant: false, isHighPriest: false, isBot: true });
+  return { ok: true };
+}
+
+function removeBot(room, botId) {
+  if (room.phase !== "lobby") return { error: "Game already started" };
+  const bot = room.players.find(p => p.id === botId && p.isBot);
+  if (!bot) return { error: "Bot not found" };
+  room.players = room.players.filter(p => p.id !== botId);
+  return { ok: true };
 }
 
 function assignRoles(room) {
@@ -368,6 +395,7 @@ function publicStateFor(room, playerId) {
       isAlive: p.isAlive,
       isAscendant: p.isAscendant,
       isHighPriest: p.isHighPriest,
+      isBot: p.isBot ?? false,
     })),
     ascendantIndex: room.ascendantIndex,
     nominatedHighPriest: room.nominatedHighPriest,
@@ -412,6 +440,8 @@ function privateInfoFor(room, playerId) {
 
 module.exports = {
   createRoom,
+  addBot,
+  removeBot,
   startGame,
   nominate,
   castVote,
